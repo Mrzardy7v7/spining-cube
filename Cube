@@ -1,0 +1,84 @@
+from tkinter import Canvas, Tk
+from itertools import product
+import numpy as np
+from math import cos, sin
+from random import choice
+
+class Cube:
+    def __init__(self, master):
+        self.master = master
+        self.canvas = Canvas(master, bg='black', width=800, height=600)
+        self.canvas.pack()
+
+        self.points = []
+        self.lines = []  # Armazena objetos de linha para atualizações futuras
+        self.scale = 120
+        self.objects_points = []
+        self.objects_lines = []
+        self.theta = 0
+        self.position = [400, 300]
+        self.projection_matrix = np.array([[1, 0, 0], [0, 1, 0]])
+
+        for point in product((-1, 1), repeat=3):
+            self.points.append(np.array(point))
+
+    def create_obj(self):
+        for _ in range(8):
+            obj = self.canvas.create_text(0, 0, font=('Arial', 10))
+            self.objects_points.append(obj)
+
+    def create_lines(self):
+        lines = [
+            (0, 1), (1, 3), (3, 2), (2, 0),
+            (4, 5), (5, 7), (7, 6), (6, 4),
+            (0, 4), (1, 5), (2, 6), (3, 7)
+        ]
+
+        for line in lines:
+            line_obj = self.canvas.create_line(0, 0, 0, 0, fill='white', width=2)
+            self.lines.append((line_obj, line))
+
+    def draw_points(self, obj, char, x, y, color):
+        self.canvas.itemconfig(obj, fill=color, text=char)
+        self.canvas.coords(obj, x, y)
+
+    def connect_points(self, obj, i, j, xy, color):
+        self.canvas.itemconfig(obj, fill=color, width=5)
+        self.canvas.coords(obj, xy[i][0], xy[i][1], xy[j][0], xy[j][1])
+
+    def update(self):
+        rotation_x = np.array([[1, 0, 0], [0, cos(self.theta), -sin(self.theta)],
+                               [0, sin(self.theta), cos(self.theta)]])
+        rotation_y = np.array([[cos(self.theta), 0, sin(self.theta)], [0, 1, 0],
+                               [-sin(self.theta), 0, cos(self.theta)]])
+        rotation_z = np.array([[cos(self.theta), sin(self.theta), 0],
+                               [-sin(self.theta), cos(self.theta), 0],
+                               [0, 0, 1]])
+
+        self.theta += 0.02
+        color = choice(['red', 'blue', 'aqua', 'magenta', 'green2', 'yellow'])
+
+        for i, point in enumerate(self.points):
+            rotated = np.dot(rotation_z, point.reshape((3, 1)))
+            rotated = np.dot(rotation_y, rotated)
+            rotated = np.dot(rotation_x, rotated)
+            projected = np.dot(self.projection_matrix, rotated)
+            x = int(projected[0][0] * self.scale) + self.position[0]
+            y = int(projected[1][0] * self.scale) + self.position[1]
+            self.draw_points(self.objects_points[i], '*', x, y, color)
+
+        for line_obj, (i, j) in self.lines:
+            xi, yi = self.canvas.coords(self.objects_points[i])
+            xj, yj = self.canvas.coords(self.objects_points[j])
+            self.canvas.coords(line_obj, xi, yi, xj, yj)
+
+        self.master.after(20, self.update)
+
+if __name__ == '__main__':
+    root = Tk()
+    root.title('Cube Animation')
+    app = Cube(root)
+    app.create_obj()
+    app.create_lines()
+    app.update()
+    root.mainloop()
